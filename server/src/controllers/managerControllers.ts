@@ -88,14 +88,36 @@ export const getManagerProperties = async (
       },
     });
 
-    const propertiesWithFormattedLocation = await Promise.all(
-      properties.map(async (property) => {
-        const coordinates: { coordinates: string }[] =
-          await prisma.$queryRaw`SELECT ST_asText(coordinates) as coordinates from "Location" where id = ${property.location.id}`;
+    interface Location {
+      id: number;
+      // Add other fields from your Location model if needed
+      [key: string]: any;
+    }
 
-        const geoJSON: any = wktToGeoJSON(coordinates[0]?.coordinates || "");
-        const longitude = geoJSON.coordinates[0];
-        const latitude = geoJSON.coordinates[1];
+    interface Property {
+      id: number;
+      // Add other fields from your Property model if needed
+      location: Location;
+      [key: string]: any;
+    }
+
+    interface CoordinatesResult {
+      coordinates: string;
+    }
+
+    interface GeoJSONPoint {
+      type: string;
+      coordinates: [number, number];
+    }
+
+    const propertiesWithFormattedLocation: Property[] = await Promise.all(
+      properties.map(async (property: Property): Promise<Property> => {
+        const coordinates: CoordinatesResult[] =
+          await prisma.$queryRaw<CoordinatesResult[]>`SELECT ST_asText(coordinates) as coordinates from "Location" where id = ${property.location.id}`;
+
+        const geoJSON: GeoJSONPoint = wktToGeoJSON(coordinates[0]?.coordinates || "") as GeoJSONPoint;
+        const longitude: number = geoJSON.coordinates[0];
+        const latitude: number = geoJSON.coordinates[1];
 
         return {
           ...property,
