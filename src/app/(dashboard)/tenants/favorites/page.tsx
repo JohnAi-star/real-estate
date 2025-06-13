@@ -12,12 +12,22 @@ import React from "react";
 
 const Favorites = () => {
   const { data: authUser } = useGetAuthUserQuery();
+  type Favorite = { id: number };
+  type Tenant = {
+    name: string;
+    id: number;
+    cognitoId: string;
+    email: string;
+    phoneNumber: string;
+    favorites?: Favorite[];
+  };
+
   const { data: tenant } = useGetTenantQuery(
     authUser?.cognitoInfo?.userId || "",
     {
       skip: !authUser?.cognitoInfo?.userId,
     }
-  );
+  ) as { data: Tenant | undefined };
 
   const {
     data: favoriteProperties,

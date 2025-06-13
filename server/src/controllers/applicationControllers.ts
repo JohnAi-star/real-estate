@@ -46,9 +46,25 @@ export const listApplications = async (
       return nextPaymentDate;
     }
 
-    const formattedApplications = await Promise.all(
-      applications.map(async (app) => {
-        const lease = await prisma.lease.findFirst({
+    interface FormattedApplication {
+      [key: string]: any;
+      property: {
+        [key: string]: any;
+        address: string;
+        manager: any;
+      };
+      manager: any;
+      lease: (LeaseWithNextPaymentDate | null);
+    }
+
+    interface LeaseWithNextPaymentDate {
+      [key: string]: any;
+      nextPaymentDate: Date;
+    }
+
+    const formattedApplications: FormattedApplication[] = await Promise.all(
+      applications.map(async (app: any): Promise<FormattedApplication> => {
+        const lease: any = await prisma.lease.findFirst({
           where: {
             tenant: {
               cognitoId: app.tenantCognitoId,
@@ -109,49 +125,83 @@ export const createApplication = async (
       return;
     }
 
-    const newApplication = await prisma.$transaction(async (prisma) => {
+    interface LeaseData {
+      startDate: Date;
+      endDate: Date;
+      rent: number;
+      deposit: number;
+      property: { connect: { id: number } };
+      tenant: { connect: { cognitoId: string } };
+    }
+
+    interface ApplicationData {
+      applicationDate: Date;
+      status: string;
+      name: string;
+      email: string;
+      phoneNumber: string;
+      message: string;
+      property: { connect: { id: number } };
+      tenant: { connect: { cognitoId: string } };
+      lease: { connect: { id: number } };
+    }
+
+    interface ApplicationWithRelations {
+      id: number;
+      applicationDate: Date;
+      status: string;
+      name: string;
+      email: string;
+      phoneNumber: string;
+      message: string;
+      property: any;
+      tenant: any;
+      lease: any;
+    }
+
+    const newApplication: ApplicationWithRelations = await prisma.$transaction(async (prisma: PrismaClient) => {
       // Create lease first
-      const lease = await prisma.lease.create({
-        data: {
-          startDate: new Date(), // Today
-          endDate: new Date(
-            new Date().setFullYear(new Date().getFullYear() + 1)
-          ), // 1 year from today
-          rent: property.pricePerMonth,
-          deposit: property.securityDeposit,
-          property: {
-            connect: { id: propertyId },
-          },
-          tenant: {
-            connect: { cognitoId: tenantCognitoId },
-          },
+      const lease: { id: number } = await prisma.lease.create({
+      data: {
+        startDate: new Date(), // Today
+        endDate: new Date(
+        new Date().setFullYear(new Date().getFullYear() + 1)
+        ), // 1 year from today
+        rent: property.pricePerMonth,
+        deposit: property.securityDeposit,
+        property: {
+        connect: { id: propertyId },
         },
+        tenant: {
+        connect: { cognitoId: tenantCognitoId },
+        },
+      } as LeaseData,
       });
 
       // Then create application with lease connection
-      const application = await prisma.application.create({
-        data: {
-          applicationDate: new Date(applicationDate),
-          status,
-          name,
-          email,
-          phoneNumber,
-          message,
-          property: {
-            connect: { id: propertyId },
-          },
-          tenant: {
-            connect: { cognitoId: tenantCognitoId },
-          },
-          lease: {
-            connect: { id: lease.id },
-          },
+      const application: ApplicationWithRelations = await prisma.application.create({
+      data: {
+        applicationDate: new Date(applicationDate),
+        status,
+        name,
+        email,
+        phoneNumber,
+        message,
+        property: {
+        connect: { id: propertyId },
         },
-        include: {
-          property: true,
-          tenant: true,
-          lease: true,
+        tenant: {
+        connect: { cognitoId: tenantCognitoId },
         },
+        lease: {
+        connect: { id: lease.id },
+        },
+      } as ApplicationData,
+      include: {
+        property: true,
+        tenant: true,
+        lease: true,
+      },
       });
 
       return application;
